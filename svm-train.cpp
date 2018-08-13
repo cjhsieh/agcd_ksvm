@@ -40,7 +40,7 @@ void exit_with_help()
 	"-v n: n-fold cross validation mode\n"
 //	"-q : quiet mode (no outputs)\n"
 	"-T maxiter : Maximum number of iterations (default 10*(number of samples))\n"
-//	"-I i : print accuracy after every i iterations (default maxiter/10)\n"
+	"-I i : print accuracy for every i iterations (default maxiter/10)\n"
 //	"-N nthreads : number of threads\n"
 	"===========\n"
     "Parameters for accelerated greedy coordinate descent: \n"
@@ -204,7 +204,7 @@ void parse_command_line(int argc, char **argv, char *input_file_name, char *test
 	param.maxiter = -1;
 	param.inneriter = -1;
 //	param.nthreads = -1;
-	param.nthreads = omp_get_max_threads();
+//	param.nthreads = omp_get_max_threads();
 
 	// parse options
 	for(i=1;i<argc;i++)

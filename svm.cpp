@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include <limits.h>
 #include <locale.h>
-#include <omp.h>
+//#include <omp.h>
 #include "svm.h"
 int libsvm_version = LIBSVM_VERSION;
 typedef float Qfloat;
@@ -812,7 +812,7 @@ void Solver::Solve_original(int l, const QMatrix& Q, const double *p_, const sch
 
 	double totaltime = 0;
 
-	double timebegin = omp_get_wtime();
+	double timebegin = clock();
 	double timebegin_tmp;
 	double total_select_time = 0;
 	double total_update_time = 0;
@@ -861,15 +861,15 @@ void Solver::Solve_original(int l, const QMatrix& Q, const double *p_, const sch
 		}
 
 		total_update_time += (clock()-timebegin_tmp)/CLOCKS_PER_SEC;
-		if ( (iter%10000 == 0) && iter!=0  ) {
-			totaltime += (omp_get_wtime()-timebegin);
+		if ( (iter%param->inneriter == 0) && iter!=0  ) {
+			totaltime += (clock()-timebegin)/CLOCKS_PER_SEC;
 			double accuracy = compute_accuracy(alpha, prob, param);
 			double nowobj = compute_obj(alpha, G, l, p);
 			printf("Iter %d Time %lf Obj %lf Accuracy %lf\n", iter, totaltime, nowobj, accuracy);
 			printf("select time %lf update time %lf kernel time %lf\n", total_select_time, total_update_time, total_kernel_time);
-//		printf("count %d\n", count_kernel);
+		printf("Kernel cache miss count %d\n", count_kernel);
 			fflush(stdout);
-			timebegin = omp_get_wtime();
+			timebegin = clock();
 		}
 
 	}
@@ -897,7 +897,6 @@ void Solver::Solve_original(int l, const QMatrix& Q, const double *p_, const sch
 	si->upper_bound_n = Cn;
 
 	info("\noptimization finished, #iter = %d\n",iter-1);
-//	info("Time: %lf\n", omp_get_wtime()-timebegin);
 
 	delete[] p;
 	delete[] y;
@@ -993,7 +992,7 @@ void Solver::Solve_acc(int l, const QMatrix& Q, const double *p_, const schar *y
 	SVC_Q *Q_mat = new SVC_Q(*prob, *param, y); 
 
 	double totaltime = 0;
-	double timebegin = omp_get_wtime();
+	double timebegin = clock();
 
 	int max_inner = 10000;
 	int totaliter = 0;
@@ -1067,15 +1066,15 @@ void Solver::Solve_acc(int l, const QMatrix& Q, const double *p_, const schar *y
 		total_update_time += (clock()-timebegin_tmp)/CLOCKS_PER_SEC;
 
 		// Print acc& obj every 10000 iterations
-		if ( ((iter)%10000 == 0) && iter!=0  ) {
-			totaltime += (omp_get_wtime()-timebegin);
+		if ( ((iter)%param->inneriter == 0) && iter!=0  ) {
+			totaltime += (clock()-timebegin);
 			double accuracy = compute_accuracy(alpha, prob, param);
 			double nowobj = compute_obj(alpha, G, l, p);
 			printf("Iter %d Time %lf Obj %lf Accuracy %lf\n", iter, totaltime, nowobj, accuracy);
 			printf("select time %lf update time %lf kernel time %lf\n", total_select_time, total_update_time, total_kernel_time);
-//		printf("count %d\n", count_kernel);
+		printf("Kernel cache miss count %d\n", count_kernel);
 			fflush(stdout);
-			timebegin = omp_get_wtime();
+			timebegin = clock();
 		}
 
 	}
@@ -1196,12 +1195,13 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 	int max_iter = param->maxiter;
 	int counter = min(l,1000)+1;
 
-	int T = omp_get_max_threads();
+//	int T = omp_get_max_threads();
+	int T = 1;
 	printf("Running with %d threads\n", T);
 	//kmeans partition
-	double kmeans_start_time = omp_get_wtime();
+	double kmeans_start_time = clock();
 	kmeans(l, T, prob);
-	printf("Finished Kmeans partition (%lf secs).\n", omp_get_wtime()-kmeans_start_time);
+	printf("Finished Kmeans partition (%lf secs).\n", (clock()-kmeans_start_time)/CLOCKS_PER_SEC);
 //	for ( int i=0 ; i<T ; i++ )
 //		printf("%d ", size_partition[i]);
 //	printf("\n");
@@ -1224,7 +1224,7 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 	printf("Finished precomputing kernel\n");
 */
 	double totaltime = 0;
-	double timebegin = omp_get_wtime();
+	double timebegin = clock();
 
 	int max_inner = 10000;
 /*	if (param->inneriter != -1 )
@@ -1234,7 +1234,7 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 
 #pragma omp parallel 
 	{
-		int rank = omp_get_thread_num();
+		int rank = 0; //omp_get_thread_num();
 		int i;
 		select_working_set(i, rank, &(values[rank]));
 	}
@@ -1255,7 +1255,7 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 		if ( now_end==1)
 			continue;
 		int i;
-		int rank = omp_get_thread_num();
+		int rank = 0; //omp_get_thread_num();
 //		if (select_working_set(i, intervals[rank], intervals[rank+1]) != 0 )
 		if (select_working_set(i, rank, &(values[rank])) != 0 )
 		{
@@ -1304,14 +1304,14 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 
 	}
 	
-		totaltime += (omp_get_wtime()-timebegin);
+		totaltime += (clock()-timebegin)/CLOCKS_PER_SEC;
 		double accuracy = compute_accuracy(alpha, prob, param);
 		double nowobj = compute_obj(alpha, G, l, p);
 		totaliter += max_inner;
 		printf("Iter %d Time %lf Obj %lf Accuracy %lf\n", totaliter, totaltime, nowobj, accuracy);
 		fflush(stdout);
 
-		timebegin = omp_get_wtime();
+		timebegin = clock();
 
 	}
 	// calculate rho
@@ -1338,7 +1338,6 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 	si->upper_bound_n = Cn;
 
 	info("\noptimization finished, #iter = %d\n",totaliter);
-	info("Time: %lf\n", omp_get_wtime()-timebegin);
 
 	delete[] p;
 	delete[] y;
@@ -2489,7 +2488,7 @@ static decision_function svm_train_one(
 	double *alpha = Malloc(double,prob->l);
 	Solver::SolutionInfo si;
 
-	omp_set_num_threads(param->nthreads);
+//	omp_set_num_threads(param->nthreads);
 	switch(param->svm_type)
 	{
 		case C_SVC:
